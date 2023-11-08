@@ -1,0 +1,31 @@
+
+    services:
+        server1:
+            build:
+                context: ./server
+            environment:
+                - SERVER_PORT=8001
+                - LOCAL_FIBONACCI_TIMEOUT=6
+            image: server-image
+            networks:
+                - fibonacci-network
+                
+                
+        loadbalancer:
+            build:
+                context: ./load_balancer
+            environment:
+                - NUMBER_OF_SERVERS=5
+                - LOAD_BALANCER_PORT=8000
+                - LOCAL_FIBONACCI_TIMEOUT=6
+            ports:
+                - "8000:8000"
+            networks:
+                - fibonacci-network
+            volumes:
+                - /var/run/docker.sock:/var/run/docker.sock
+
+    networks:
+        fibonacci-network:
+            name: fibonacci-network
+    
