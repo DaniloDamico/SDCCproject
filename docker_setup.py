@@ -7,11 +7,12 @@ def write_dockercompose():
     local_fibonacci_timeout = os.environ.get("LOCAL_FIBONACCI_TIMEOUT")
     number_of_servers = os.environ.get("NUMBER_OF_SERVERS")
     load_balancer_port = os.environ.get("LOAD_BALANCER_PORT")
+    elasticity_sleep = os.environ.get("ELASTICITY_SLEEP")
     server_port = int(load_balancer_port) + 1
 
     content = f"""
     services:
-        server1:
+        server:
             build:
                 context: ./server
             environment:
@@ -29,6 +30,7 @@ def write_dockercompose():
                 - NUMBER_OF_SERVERS={number_of_servers}
                 - LOAD_BALANCER_PORT={load_balancer_port}
                 - LOCAL_FIBONACCI_TIMEOUT={local_fibonacci_timeout}
+                - ELASTICITY_SLEEP={elasticity_sleep}
             ports:
                 - "{load_balancer_port}:{load_balancer_port}"
             networks:
@@ -50,7 +52,11 @@ def main():
     load_dotenv()
     write_dockercompose()
 
-    subprocess.run(["docker-compose", "up", "-d"])
+    #subprocess.run(["docker-compose", "up", "-d"])
+
+    subprocess.run(["docker-compose", "build", "server"])
+    subprocess.run(["docker-compose", "network", "create", "fibonacci-network"])
+    subprocess.run(["docker-compose", "up", "loadbalancer", "-d"])
 
 
 if __name__ == '__main__':

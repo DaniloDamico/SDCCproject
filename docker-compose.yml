@@ -1,11 +1,11 @@
 
     services:
-        server1:
+        server:
             build:
                 context: ./server
             environment:
                 - SERVER_PORT=8001
-                - LOCAL_FIBONACCI_TIMEOUT=6
+                - LOCAL_FIBONACCI_TIMEOUT=10
             image: server-image
             networks:
                 - fibonacci-network
@@ -15,9 +15,10 @@
             build:
                 context: ./load_balancer
             environment:
-                - NUMBER_OF_SERVERS=5
+                - NUMBER_OF_SERVERS=2
                 - LOAD_BALANCER_PORT=8000
-                - LOCAL_FIBONACCI_TIMEOUT=6
+                - LOCAL_FIBONACCI_TIMEOUT=10
+                - ELASTICITY_SLEEP=1
             ports:
                 - "8000:8000"
             networks:

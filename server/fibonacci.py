@@ -46,11 +46,13 @@ def fibonacci_cloud(n):
 
 
 def local_manager(queue, n):
+    n = int(n)
     result = str(fibonacci(n))
     queue.put(result)
 
 
-def fibonacci_manager(n):
+def fibonacci_manager(par):
+    n = int(par)
     # Execute local computation in a new process
     queue = multiprocessing.Queue()
     process = multiprocessing.Process(target=local_manager, args=(queue, n))
@@ -79,7 +81,7 @@ def main():
     port = int(os.getenv('SERVER_PORT', 8001))
     server = xmlrpc.server.SimpleXMLRPCServer((address, port))
     logger.info(f"listening on port {port}")
-    server.register_function(fibonacci_manager, "fibonacci")
+    server.register_function(fibonacci_manager, "call_function")
     server.serve_forever()
 
 
