@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import socket
@@ -9,6 +10,7 @@ from urllib.parse import urlparse
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 
 import docker
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,17 +30,45 @@ class SimpleThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 
 
 def balance_request(param):
+
+    if server.connection_count == 2*number_of_servers:
+        return offload_to_cloud(param)
+
     global round_robin_index
-    server = server_urls[round_robin_index]
+    s_url = server_urls[round_robin_index]
     round_robin_index = (round_robin_index + 1) % len(server_urls)
 
-    logger.info(f"server chosen: {server}")
-
-    proxy = xmlrpc.client.ServerProxy(server)
+    logger.info(f"server chosen: {s_url }")
+    proxy = xmlrpc.client.ServerProxy(s_url)
     response = proxy.call_function(param)
-
     logger.info(f"response: {response}")
     return response
+
+
+def offload_to_cloud(param):
+    api_url = "https://gi4ubwu7s6.execute-api.us-east-1.amazonaws.com/fibonacciStage/fibonacciResource"
+
+    payload = {
+        "value": str(param),
+    }
+
+    response = requests.get(api_url, json=payload)
+
+    # Check the response
+    if response.status_code == 200:
+        try:
+            logger.info("Cloud request was successful")
+            logger.info(response.json())
+            data = response.json()
+            body = data.get("body")
+            body = json.loads(body)
+            return body.get("result")
+        except ValueError:
+            return "a server error occurred"
+    else:
+        logger.error(f"Cloud request failed with status code: {response.status_code}")
+        logger.error(response.text)
+        return "Cloud request failed"
 
 
 class RequestHandler(SimpleXMLRPCRequestHandler):
