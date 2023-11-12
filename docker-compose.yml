@@ -3,9 +3,6 @@
         server:
             build:
                 context: ./server
-            environment:
-                - SERVER_PORT=8001
-                - LOCAL_FIBONACCI_TIMEOUT=10
             image: server-image
             networks:
                 - fibonacci-network
@@ -15,16 +12,19 @@
             build:
                 context: ./load_balancer
             environment:
-                - NUMBER_OF_SERVERS=2
+                - NUMBER_OF_SERVERS=1
                 - LOAD_BALANCER_PORT=8000
-                - LOCAL_FIBONACCI_TIMEOUT=10
-                - ELASTICITY_SLEEP=1
+                - LOCAL_TIMEOUT=10
+                - ELASTICITY_SLEEP=10
+                - FAAS_CONTAINER_NAME=redis-container
+                - FAAS_FUNCTION_NAME=faas
             ports:
                 - "8000:8000"
             networks:
                 - fibonacci-network
             volumes:
                 - /var/run/docker.sock:/var/run/docker.sock
+                - /faas:/faas
 
     networks:
         fibonacci-network:

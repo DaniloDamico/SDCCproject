@@ -2,11 +2,14 @@ FROM python
 
 WORKDIR /app
     
-COPY fibonacci.py .
+COPY server.py .
     
 COPY requirements.txt /app/
     
 RUN pip install -r requirements.txt
+
+#debug
+RUN pip install docker
     
-CMD ["python", "fibonacci.py"]
+CMD ["python", "server.py"]
     

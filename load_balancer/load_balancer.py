@@ -17,8 +17,12 @@ logger = logging.getLogger(__name__)
 
 global number_of_servers
 global load_balancer_port
-global local_fibonacci_timeout
+global local_timeout
 global elasticity_sleep
+global faas_volume
+
+SHARED_VOLUME = "/faas"
+FAAS_FUNCTION_NAME = "function.py"
 
 # List of server URLs
 server_urls = []
@@ -30,15 +34,14 @@ class SimpleThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
 
 
 def balance_request(param):
-
-    if server.connection_count == 2*number_of_servers:
+    if server.connection_count == 2 * number_of_servers:
         return offload_to_cloud(param)
 
     global round_robin_index
     s_url = server_urls[round_robin_index]
     round_robin_index = (round_robin_index + 1) % len(server_urls)
 
-    logger.info(f"server chosen: {s_url }")
+    logger.info(f"server chosen: {s_url}")
     proxy = xmlrpc.client.ServerProxy(s_url)
     response = proxy.call_function(param)
     logger.info(f"response: {response}")
@@ -108,7 +111,7 @@ def elasticity():
             server_port = find_empty_port()
             url = f"SERVER_PORT={server_port}"
             environment.append(url)
-            environment.append(f"LOCAL_FIBONACCI_TIMEOUT={local_fibonacci_timeout}")
+            environment.append(f"LOCAL_TIMEOUT={local_timeout}")
 
             hostname = f"server{server_port}"
             new_server(environment, hostname)
@@ -138,11 +141,14 @@ def main():
 
 def new_server(environment, hostname):
     client = docker.from_env()
+    shared_file=SHARED_VOLUME+"/"+FAAS_FUNCTION_NAME
+
     client.containers.run(
         image="server-image",
         environment=environment,
         network="fibonacci-network",
         hostname=hostname,
+        volumes={shared_file: {'bind': shared_file, 'mode': 'rw'}},
         name=hostname,
         detach=True
     )
@@ -170,17 +176,33 @@ def create_new_servers():
         server_port = find_empty_port()
         url = f"SERVER_PORT={server_port}"
         environment.append(url)
-        environment.append(f"LOCAL_FIBONACCI_TIMEOUT={local_fibonacci_timeout}")
+        environment.append(f"LOCAL_TIMEOUT={local_timeout}")
 
         hostname = f"server{server_port}"
         new_server(environment, hostname)
         server_urls.append(f"http://{hostname}:{server_port}")
 
 
+def initialize_faas():
+    client = docker.from_env()
+
+    exec_command = f"redis-cli GET {faas_function_name}"
+    function_code = client.containers.get(faas_container_name).exec_run(exec_command, stdout=True)
+    function_code = function_code.output.decode("utf8").strip()
+
+    with open(SHARED_VOLUME + "/" + FAAS_FUNCTION_NAME, "w") as f:
+        f.write(function_code)
+
+
 if __name__ == '__main__':
-    local_fibonacci_timeout = int(os.environ.get("LOCAL_FIBONACCI_TIMEOUT"))
+    local_timeout = int(os.environ.get("LOCAL_TIMEOUT"))
     load_balancer_port = int(os.environ.get("LOAD_BALANCER_PORT"))
     elasticity_sleep = int(os.environ.get("ELASTICITY_SLEEP"))
+
+    faas_container_name = os.environ.get("FAAS_CONTAINER_NAME")
+    faas_function_name = os.environ.get("FAAS_FUNCTION_NAME")
+
+    initialize_faas()
 
     if int(os.environ.get("NUMBER_OF_SERVERS")) > 1:
         number_of_servers = int(os.environ.get("NUMBER_OF_SERVERS"))

@@ -4,20 +4,19 @@ import os
 
 
 def write_dockercompose():
-    local_fibonacci_timeout = os.environ.get("LOCAL_FIBONACCI_TIMEOUT")
+    local_fibonacci_timeout = os.environ.get("LOCAL_TIMEOUT")
     number_of_servers = os.environ.get("NUMBER_OF_SERVERS")
     load_balancer_port = os.environ.get("LOAD_BALANCER_PORT")
     elasticity_sleep = os.environ.get("ELASTICITY_SLEEP")
-    server_port = int(load_balancer_port) + 1
+
+    faas_container_name = os.environ.get("FAAS_CONTAINER_NAME")
+    faas_function_name = os.environ.get("FAAS_FUNCTION_NAME")
 
     content = f"""
     services:
         server:
             build:
                 context: ./server
-            environment:
-                - SERVER_PORT={server_port}
-                - LOCAL_FIBONACCI_TIMEOUT={local_fibonacci_timeout}
             image: server-image
             networks:
                 - fibonacci-network
@@ -29,14 +28,17 @@ def write_dockercompose():
             environment:
                 - NUMBER_OF_SERVERS={number_of_servers}
                 - LOAD_BALANCER_PORT={load_balancer_port}
-                - LOCAL_FIBONACCI_TIMEOUT={local_fibonacci_timeout}
+                - LOCAL_TIMEOUT={local_fibonacci_timeout}
                 - ELASTICITY_SLEEP={elasticity_sleep}
+                - FAAS_CONTAINER_NAME={faas_container_name}
+                - FAAS_FUNCTION_NAME={faas_function_name}
             ports:
                 - "{load_balancer_port}:{load_balancer_port}"
             networks:
                 - fibonacci-network
             volumes:
                 - /var/run/docker.sock:/var/run/docker.sock
+                - /faas:/faas
 
     networks:
         fibonacci-network:
@@ -51,8 +53,6 @@ def main():
     # Load environment variables from the .env file
     load_dotenv()
     write_dockercompose()
-
-    #subprocess.run(["docker-compose", "up", "-d"])
 
     subprocess.run(["docker-compose", "build", "server"])
     subprocess.run(["docker-compose", "network", "create", "fibonacci-network"])
