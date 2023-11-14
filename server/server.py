@@ -5,34 +5,28 @@ import os
 import subprocess
 import xmlrpc.server
 
-import docker
 import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 global local_timeout
+global api_url
 
 FUNCTION_PATH = '/faas/function.py'
 
 
 def offload_to_cloud(n):
-    api_url = "https://gi4ubwu7s6.execute-api.us-east-1.amazonaws.com/fibonacciStage/fibonacciResource"
 
-    payload = {
-        "value": str(n),
-    }
-
-    response = requests.get(api_url, json=payload)
+    payload = {'parameter': str(n)}
+    response = requests.post(api_url, json=payload)
 
     # Check the response
     if response.status_code == 200:
         try:
             logger.info("Cloud request was successful")
             logger.info(response.json())
-            data = response.json()
-            body = data.get("body")
-            body = json.loads(body)
-            return body.get("result")
+            body_text = response.json()['body']
+            return body_text
         except ValueError:
             return "a server error occurred"
     else:
@@ -83,6 +77,8 @@ def faas_manager(par):
 def main():
     global local_timeout
     local_timeout = int(os.environ.get("LOCAL_TIMEOUT"))
+    global api_url
+    api_url = os.environ.get("API_URL")
 
     address = "0.0.0.0"
     port = int(os.getenv('SERVER_PORT', 8001))

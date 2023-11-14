@@ -12,6 +12,10 @@ def write_dockercompose():
     faas_container_name = os.environ.get("FAAS_CONTAINER_NAME")
     faas_function_name = os.environ.get("FAAS_FUNCTION_NAME")
 
+    credentials_path = os.environ.get("CREDENTIALS_PATH")
+    aws_account_id = os.environ.get("AWS_ACCOUNT_ID")
+    aws_role = os.environ.get("AWS_ROLE")
+
     content = f"""
     services:
         server:
@@ -32,6 +36,9 @@ def write_dockercompose():
                 - ELASTICITY_SLEEP={elasticity_sleep}
                 - FAAS_CONTAINER_NAME={faas_container_name}
                 - FAAS_FUNCTION_NAME={faas_function_name}
+                - AWS_ACCOUNT_ID={aws_account_id}
+                - AWS_ROLE={aws_role}
+                - AWS_DEFAULT_REGION={os.environ.get("AWS_DEFAULT_REGION")}
             ports:
                 - "{load_balancer_port}:{load_balancer_port}"
             networks:
@@ -39,6 +46,7 @@ def write_dockercompose():
             volumes:
                 - /var/run/docker.sock:/var/run/docker.sock
                 - /faas:/faas
+                - {credentials_path}:/root/.aws/credentials:ro
 
     networks:
         fibonacci-network:
