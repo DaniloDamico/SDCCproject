@@ -81,6 +81,8 @@ def balance_request(param):
         return offload_to_cloud(param)
 
     global round_robin_index
+    # needed after scaling in the number of servers
+    round_robin_index = round_robin_index % len(server_urls)
     s_url = server_urls[round_robin_index]
     round_robin_index = (round_robin_index + 1) % len(server_urls)
 
@@ -149,7 +151,9 @@ def elasticity():
         elif len(server_urls) > target_servers and len(server_urls) > 1 and len(server_urls) > number_of_servers:
             # Decrease the number of servers
             logging.info("Decreasing the number of servers")
+            logging.info(f"Before popping: {server_urls}")
             removed_server = server_urls.pop()
+            logging.info(f"After popping: {server_urls}")
             parsed_url = urlparse(removed_server)
             hostname = parsed_url.hostname
             kill_container_by_name(hostname)
@@ -239,7 +243,7 @@ def initialize_faas():
             FunctionName=LAMBDA_NAME,
             ZipFile=open(zip_file_name, 'rb').read()
         )
-        logging.info(f"Lambda updated successfully: {response}")
+        logging.info("Lambda updated successfully")
     except lambda_client.exceptions.ResourceNotFoundException:
 
         # Create a new function if it doesn't exist
@@ -255,7 +259,7 @@ def initialize_faas():
             MemorySize=3008,
             Publish=True
         )
-        logging.info(f"Lambda function created successfully: {response}")
+        logging.info("Lambda function created successfully")
 
     # Create rest api
     rest_api = api_gateway_client.create_rest_api(
