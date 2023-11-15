@@ -275,7 +275,7 @@ def initialize_faas():
     # LAMBDA
     try:
         lambda_client.get_function(FunctionName=LAMBDA_NAME)
-        response = lambda_client.update_function_code(
+        lambda_client.update_function_code(
             FunctionName=LAMBDA_NAME,
             ZipFile=open(zip_file_name, 'rb').read()
         )
@@ -283,7 +283,7 @@ def initialize_faas():
     except lambda_client.exceptions.ResourceNotFoundException:
 
         # Create a new function if it doesn't exist
-        response = lambda_client.create_function(
+        lambda_client.create_function(
             FunctionName=LAMBDA_NAME,
             Runtime=PYTHONVER,
             Role=aws_role,
