@@ -86,11 +86,47 @@ def balance_request(param):
     s_url = server_urls[round_robin_index]
     round_robin_index = (round_robin_index + 1) % len(server_urls)
 
-    logger.info(f"server chosen: {s_url}")
-    proxy = xmlrpc.client.ServerProxy(s_url)
-    response = proxy.call_function(param)
-    logger.info(f"response: {response}")
+    try:
+        logger.info(f"server chosen: {s_url}")
+        proxy = xmlrpc.client.ServerProxy(s_url)
+        response = proxy.call_function(param)
+        logger.info(f"response: {response}")
+    except Exception:
+        logging.info(f"Request on server {s_url} failed. Retrying on the next one")
+
+        execute_thread = threading.Thread(target=recreate_server, args=(s_url,))
+        execute_thread.start()
+
+        return balance_request(param)
+
     return response
+
+
+def recreate_server(url):
+    # this function should be executed in its own dedicated thread
+    parsed_url = urlparse(url)
+
+    hostname = parsed_url.hostname
+    kill_container_by_name(hostname)
+
+    server_port = parsed_url.port
+    url = f"SERVER_PORT={server_port}"
+
+    environment = [url, f"LOCAL_TIMEOUT={local_timeout}", f"API_URL={gateway_api_url}"]
+    hostname = f"server{server_port}"
+
+    client = docker.from_env()
+    shared_file = SHARED_VOLUME + "/" + FAAS_FUNCTION_NAME
+
+    client.containers.run(
+        image="server-image",
+        environment=environment,
+        network="fibonacci-network",
+        hostname=hostname,
+        volumes={shared_file: {'bind': shared_file, 'mode': 'rw'}},
+        name=hostname,
+        detach=True
+    )
 
 
 def offload_to_cloud(param):
@@ -141,7 +177,7 @@ def elasticity():
         time.sleep(elasticity_sleep)
         current_connections = server.connection_count
         target_servers = current_connections
-        #logger.info(f"Elasticity thread active. Current Connections: {current_connections} Target Servers: {target_servers}")
+        # logger.info(f"Elasticity thread active. Current Connections: {current_connections} Target Servers: {target_servers}")
 
         if len(server_urls) < target_servers and len(server_urls) < 2 * number_of_servers:
             logging.info("Increasing the number of servers")
@@ -202,7 +238,7 @@ def kill_container_by_name(hostname):
     try:
         client = docker.from_env()
         container = client.containers.get(hostname)
-        #logging.info(f"Trying to remove container with hostname: {hostname}")
+        # logging.info(f"Trying to remove container with hostname: {hostname}")
         # Stop and remove the container
         container.stop()
         container.remove()
@@ -324,8 +360,6 @@ def initialize_faas():
 
     global gateway_api_url
     gateway_api_url = f"https://{rest_api_id}.execute-api.us-east-1.amazonaws.com/dev/greeting"
-
-
 
 
 if __name__ == '__main__':
